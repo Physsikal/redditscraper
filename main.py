@@ -1,9 +1,11 @@
 # Importing dependencies
+import sys
 import praw
 import prawcore
 import datetime
 import csv
 from prompt_toolkit.shortcuts import ProgressBar
+from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.shortcuts import yes_no_dialog
 from prompt_toolkit.shortcuts import message_dialog
 from prompt_toolkit.shortcuts import input_dialog
@@ -14,12 +16,20 @@ from tkinter import filedialog
 # TODO:
 """
 - fix the column_order list requirement in add_dicts_to_csv()
-- fix select_or_create_csv() because when selecting a file you can cancel the filedialog and it will crash the program
+- fix select_or_create_csv() because when selecting a file you can cancel the filedialog and it will crash the program [DONE]
 - implement exception handling
-- limit subreddit_search_number in main() to only handle integers
-- flush the loading screen in RedditScrapeFunctions.scraper()
-- add more information to loading screen in RedditScrapeFunctions.scraper() so people know what is being loaded
+- limit subreddit_search_number in main() to only handle integers [DONE]
+- flush the loading screen in RedditScrapeFunctions.scraper() [DONE]
+- add more information to loading screen in RedditScrapeFunctions.scraper() so people know what is being loaded [DONE]
 - [URGENT] Create a toggle for 'New', 'Hot', etc.
+"""
+
+# CHANGELOG:
+"""
+v1.1:
+* Added error handling for non-existant subreddits
+* Added filedialog cancel protection
+* Added information to the loading bar so users know what is being downloaded
 """
 
 class RedditScrapeFunctions:
@@ -102,6 +112,14 @@ class RedditScrapeFunctions:
                 post.title
                 return True
         except prawcore.exceptions.NotFound:
+            message_dialog(
+                        title='Warning',
+                        text='This subreddit does not exist!').run()
+            return False
+        except Exception as e:
+            message_dialog(
+                        title='Warning',
+                        text='An error occured or this subreddit does not exist!').run()
             return False
 
     def scraper(self, subreddit, search_limit=1):
@@ -129,8 +147,11 @@ class RedditScrapeFunctions:
 
         return_dict = {}
 
-        with ProgressBar() as pb:
-            for submission in pb(self.reddit.subreddit(subreddit).hot(limit=search_limit), total=search_limit):
+        html_title = HTML('Downloading ' + str(search_limit) + ' Reddit entries...')
+        html_label = HTML('<ansired>Download progress</ansired>: ')
+
+        with ProgressBar(title=html_title) as pb:
+            for submission in pb(self.reddit.subreddit(subreddit).hot(limit=search_limit), total=search_limit, label=html_label):
                 new_dict = dict_template.copy()
 
                 new_dict["platform"] = "reddit"
@@ -144,6 +165,7 @@ class RedditScrapeFunctions:
                 new_dict["post_body"] = str(submission.selftext).encode('utf-8', errors='ignore').decode('utf-8')
                 return_dict[hash(str(submission.id))] = new_dict
 
+        sys.stdout.flush()
         return return_dict
 
 def select_or_create_csv():
@@ -151,40 +173,38 @@ def select_or_create_csv():
     root = tk.Tk()
     root.withdraw()  # Hide the main window
 
-    # Ask the user to select an option
-    result = yes_no_dialog(
-        title='File Option',
-        text='Do you already have a CSV?').run()
+    while True:
+        # Ask the user to select an option
+        result = yes_no_dialog(
+            title='File Option',
+            text='Do you already have a CSV?').run()
 
-    if result == True:
-        # File selection dialog
-        file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
-        if file_path:
-            return file_path
-        else:
-            return None
+        if result == True:
+            # File selection dialog for when user selected yes
+            file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+            # File path gets returned
+            if file_path:
+                return file_path
+            # If the user cancelled it will not return the file path and continue the loop
+        elif result == False:
+            # Informs the user that the file will be created
+            message_dialog(
+                title='Information',
+                text='A file will now be created for you.').run()
+            
+            # Define default columns
+            columns = ['platform', 'date', 'post_title', 'post_id', 'author', 
+                    'upvotes', 'post_url', 'comment_count', 'post_body', 'sentiment']
 
-    elif result == False:
-        message_dialog(
-            title='Information',
-            text='A file will now be created for you.').run()
-        
-        # Define default columns
-        columns = ['platform', 'date', 'post_title', 'post_id', 'author', 
-                   'upvotes', 'post_url', 'comment_count', 'post_body', 'sentiment']
-
-        # Saving file dialog
-        file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
-        if file_path:
-            # Create a new CSV file with specified columns
-            with open(file_path, 'w', newline='', encoding='utf-8') as file:
-                writer = csv.DictWriter(file, fieldnames=columns)
-                writer.writeheader()
-            print(f"New CSV file created at: {file_path}")
-            return file_path
-        else:
-            print("No file was created.")
-            return None
+            # Saving file dialog
+            file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
+            # If it's detected that a file has been selected it will continue else it will go back to the yes no dialog
+            if file_path:
+                # Create a new CSV file with specified columns
+                with open(file_path, 'w', newline='', encoding='utf-8') as file:
+                    writer = csv.DictWriter(file, fieldnames=columns)
+                    writer.writeheader()
+                return file_path
 
 def extract_first_level_nested_dicts(main_dict):
     """
@@ -261,10 +281,6 @@ def main():
                 # This if statement takes a Subreddit and if it exists let's it through
                 if bot.test_if_subreddit_exists(user_menu_subreddit_choice):
                     break
-                else:
-                    message_dialog(
-                        title='Warning',
-                        text='This subreddit does not exist!').run()
             # FROM THIS POINT FORWARD CODE NEEDS TO BE OPTIMIZED
             while True:
                 subreddit_search_number = input_dialog(
@@ -280,7 +296,7 @@ def main():
             add_dicts_to_csv(dicts=unnested_scrape_results, csv_filename=user_chosen_csv_dir)
             message_dialog(
                         title='Process Completed',
-                        text='You can find your updated CSV in: ' + str(user_chosen_csv_dir)).run()
+                        text='You can find your updated CSV in ' + str(user_chosen_csv_dir)).run()
 
 
 main()
