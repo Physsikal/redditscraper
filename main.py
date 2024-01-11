@@ -298,5 +298,4 @@ def main():
                         title='Process Completed',
                         text='You can find your updated CSV in ' + str(user_chosen_csv_dir)).run()
 
-
 main()
