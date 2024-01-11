@@ -266,9 +266,13 @@ def main():
                         title='Warning',
                         text='This subreddit does not exist!').run()
             # FROM THIS POINT FORWARD CODE NEEDS TO BE OPTIMIZED
-            subreddit_search_number = input_dialog(
-                title='Information Required',
-                text='How many entries would you like to collect (e.g. 1, 100, 1000, 892)?:').run()
+            while True:
+                subreddit_search_number = input_dialog(
+                    title='Information Required',
+                    text='How many entries would you like to collect (e.g. 1-1000)?:').run()
+                if subreddit_search_number.isdigit():
+                    if int(subreddit_search_number) > 0 and int(subreddit_search_number) < 1001:
+                        break
             subreddit_search_number = int(subreddit_search_number)
             scrape_results = bot.scraper(subreddit=user_menu_subreddit_choice, search_limit=subreddit_search_number)
             unnested_scrape_results = extract_first_level_nested_dicts(scrape_results)
