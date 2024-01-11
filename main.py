@@ -22,6 +22,7 @@ from tkinter import filedialog
 - flush the loading screen in RedditScrapeFunctions.scraper() [DONE]
 - add more information to loading screen in RedditScrapeFunctions.scraper() so people know what is being loaded [DONE]
 - [URGENT] Create a toggle for 'New', 'Hot', etc.
+- [URGENT] Use last saved credentials
 """
 
 # CHANGELOG:
