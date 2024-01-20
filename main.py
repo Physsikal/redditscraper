@@ -11,7 +11,6 @@ from prompt_toolkit.shortcuts import button_dialog, prompt, yes_no_dialog, messa
 import tkinter as tk
 from tkinter import filedialog
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-import sentiment_analysis
 
 analyzer = SentimentIntensityAnalyzer()
 
