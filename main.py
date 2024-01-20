@@ -1,6 +1,7 @@
 # Importing dependencies
 import os
 import json
+import pandas as pd
 import praw
 import prawcore
 import datetime
@@ -255,7 +256,7 @@ class RedditScrapeFunctions:
         os.system('cls')
         return return_dict
     
-    def manualScraper(self, subreddit, search_limit=1):
+    def manualScraper(self, csv_file_location, subreddit, search_limit=1):
         """
         Scrapes information from a specified subreddit using the Reddit API.
 
@@ -291,6 +292,8 @@ class RedditScrapeFunctions:
         with ProgressBar(title=html_title) as pb:
             subreddit_posts = pb(self.reddit.subreddit(subreddit).hot(limit=search_limit), total=search_limit, label=html_label)
 
+        compare_if_exists_list = extract_column_values(csv_file_location, 'post_id')
+
         os.system('cls')
 
         for submission in subreddit_posts:
@@ -307,82 +310,106 @@ class RedditScrapeFunctions:
             new_dict["post_body"] = str(submission.selftext).encode('utf-8', errors='ignore').decode('utf-8')
             new_dict["sentiment"] = analyzer.polarity_scores(str(submission.selftext).encode('utf-8', errors='ignore').decode('utf-8'))['compound']
 
-            print_formatted_text(HTML('<style bg="yellow" fg="black">You can find the post here below: </style>\n'))
+            if str(submission.id) not in compare_if_exists_list:
+                print_formatted_text(HTML('<style bg="yellow" fg="black">You can find the post here below: </style>\n'))
 
-            print('Title: ' + str(submission.title))
+                print('Title: ' + str(submission.title))
 
-            print('\n' + str(submission.selftext))
+                print('\n' + str(submission.selftext))
 
-            # MAKE PRETTY
-            prompt(HTML('\n<style bg="yellow" fg="black">Press ENTER to continue.</style>\n'))
+                # MAKE PRETTY
+                prompt(HTML('\n<style bg="yellow" fg="black">Press ENTER to continue.</style>\n'))
 
-            os.system('cls')
+                os.system('cls')
 
-            while True:
-                subject_box_choice = checkboxlist_dialog(
-                    title="Options",
-                    text="What subjects were discussed in this topic?",
-                    values=[
-                        ("math", "Math"),
-                        ("science", "Sciences"),
-                        ("lang", "Language"),
-                        ("societies", "Individuals and Societies"),
-                        ("arts", "Arts"),
-                        ("misc", "Misc"),
-                        ("skip", "Skip this post")
-                    ]
-                ).run()
-
-                if subject_box_choice is None:
-                    cancel_options = yes_no_dialog(
-                        title='Warning',
-                        text='You just pressed cancel. You\'ll stop the scrape and begin the save process. Do you still wish to cancel?').run()
-                    if cancel_options:
-                        return return_dict
-                elif subject_box_choice == ['skip']:
-                    break
-                else:
-                    new_dict["subject"] = subject_box_choice
-                    break
-
-            if subject_box_choice == ['skip']:
-                pass
-            else:
                 while True:
-                    problem_box_choice = checkboxlist_dialog(
+                    subject_box_choice = checkboxlist_dialog(
                         title="Options",
-                        text="What problems were discussed in this topic?",
+                        text="What subjects were discussed in this topic?",
                         values=[
-                            ("teachers", "Lack of quality teachers/teaching"),
-                            ("ia", "Need college support"),
-                            ("workload", "Too high workload"),
-                            ("confusing", "IB is too confusing"),
-                            ("resources", "Bad/not enough resources"),
-                            ("college", "Need college guidance"),
-                            ("management", "Difficulties with time management or organization"),
-                            ("mental", "Mental health issues"),
-                            ("structure", "Need college guidance"),
-                            ("langbarrier", "Language barrier"),
+                            ("math", "Math"),
+                            ("science", "Sciences"),
+                            ("lang", "Language"),
+                            ("societies", "Individuals and Societies"),
+                            ("arts", "Arts"),
+                            ("misc", "Misc"),
+                            ("skip", "Skip this post")
                         ]
                     ).run()
 
-                    if problem_box_choice is None:
+                    if subject_box_choice is None:
                         cancel_options = yes_no_dialog(
                             title='Warning',
                             text='You just pressed cancel. You\'ll stop the scrape and begin the save process. Do you still wish to cancel?').run()
                         if cancel_options:
-                            return_dict[hash(str(submission.id))] = new_dict
                             return return_dict
-                    else:
-                        new_dict["problem"] = problem_box_choice
+                    elif subject_box_choice == ['skip']:
                         break
-            
-            if subject_box_choice != "skip":
-                return_dict[hash(str(submission.id))] = new_dict
+                    else:
+                        new_dict["subject"] = subject_box_choice
+                        break
+
+                if subject_box_choice == ['skip']:
+                    pass
+                else:
+                    while True:
+                        problem_box_choice = checkboxlist_dialog(
+                            title="Options",
+                            text="What problems were discussed in this topic?",
+                            values=[
+                                ("teachers", "Lack of quality teachers/teaching"),
+                                ("ia", "Need college support"),
+                                ("workload", "Too high workload"),
+                                ("ib", "IB structure unclear/confusing"),
+                                ("resources", "Bad/not enough resources"),
+                                ("college", "Need college guidance"),
+                                ("management", "Difficulties with time management or organization"),
+                                ("mental", "Mental health issues"),
+                                ("structure", "Needs a (specific) study guide/structure"),
+                                ("langbarrier", "Language barrier"),
+                            ]
+                        ).run()
+
+                        if problem_box_choice is None:
+                            cancel_options = yes_no_dialog(
+                                title='Warning',
+                                text='You just pressed cancel. You\'ll stop the scrape and begin the save process. Do you still wish to cancel?').run()
+                            if cancel_options:
+                                return_dict[hash(str(submission.id))] = new_dict
+                                return return_dict
+                        else:
+                            new_dict["problem"] = problem_box_choice
+                            break
+                
+                if subject_box_choice != "skip":
+                    return_dict[hash(str(submission.id))] = new_dict
 
             os.system('cls')
 
         return return_dict
+
+def extract_column_values(csv_file, column_name):
+        """
+        Extracts all values from a specified column in a CSV file.
+
+        Args:
+        csv_file (str): The path to the CSV file.
+        column_name (str): The name of the column to extract values from.
+
+        Returns:
+        list: A list containing the values from the specified column.
+        """
+        try:
+            # Read the CSV file
+            df = pd.read_csv(csv_file)
+            
+            # Extract the column values
+            if column_name in df.columns:
+                return df[column_name].tolist()
+            else:
+                return False
+        except Exception:
+            return False
 
 def select_or_create_csv():
     # Initialize Tkinter
@@ -541,7 +568,7 @@ def main():
                             break
                 subreddit_search_number = int(subreddit_search_number)
                 user_chosen_csv_dir = select_or_create_csv()
-                scrape_results = bot.manualScraper(subreddit=user_menu_subreddit_choice, search_limit=subreddit_search_number)
+                scrape_results = bot.manualScraper(user_chosen_csv_dir, subreddit=user_menu_subreddit_choice, search_limit=subreddit_search_number)
                 unnested_scrape_results = extract_first_level_nested_dicts(scrape_results)
                 add_dicts_to_csv(dicts=unnested_scrape_results, csv_filename=user_chosen_csv_dir)
                 message_dialog(
