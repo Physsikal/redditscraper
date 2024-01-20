@@ -11,6 +11,7 @@ from prompt_toolkit.shortcuts import button_dialog, prompt, yes_no_dialog, messa
 import tkinter as tk
 from tkinter import filedialog
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import sentiment_analysis
 
 analyzer = SentimentIntensityAnalyzer()
 
@@ -338,13 +339,14 @@ class RedditScrapeFunctions:
                         title='Warning',
                         text='You just pressed cancel. You\'ll stop the scrape and begin the save process. Do you still wish to cancel?').run()
                     if cancel_options:
-                        return_dict[hash(str(submission.id))] = new_dict
                         return return_dict
+                elif subject_box_choice == ['skip']:
+                    break
                 else:
                     new_dict["subject"] = subject_box_choice
                     break
 
-            if subject_box_choice == "skip":
+            if subject_box_choice == ['skip']:
                 pass
             else:
                 while True:
